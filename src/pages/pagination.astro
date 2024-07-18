@@ -1,0 +1,55 @@
+---
+import "../styles/articles.css";
+
+export const prerender = false;
+const currentPath = Astro.url.pathname;
+const page = parseInt(Astro.url.searchParams.get("page") || "1");
+const pageSize = 6;
+
+const fetchArticles = async (page, pageSize) => {
+  const response = await fetch(
+    `${import.meta.env.STRAPI_API_URL}/api/articles?pagination[page]=${page}&pagination[pageSize]=${pageSize}&populate=*`
+  );
+  const data = await response.json();
+  return data;
+};
+
+const { data: articles, meta } = await fetchArticles(page, pageSize);
+---
+
+<div class="articles-container">
+  <h1>Latest Articles</h1>
+
+  <div class="articles-grid">
+    {
+      articles.map((article) => (
+        <article class="article">
+          <h2>{article.attributes.title}</h2>
+          <div class="article-content" set:html={article.attributes.content} />
+        </article>
+      ))
+    }
+  </div>
+
+  <nav class="pagination">
+    <a
+      href={`${currentPath}?page=${meta.pagination.page - 1}`}
+      class={`pagination-button ${page <= 1 ? "disabled" : ""}`}
+      aria-label="Go to previous page"
+      rel={page > 1 ? "prev" : null}
+    >
+      Previous
+    </a>
+    <span class="pagination-info">
+      Page {page} of {meta.pagination.pageCount}
+    </span>
+    <a
+      href={`${currentPath}?page=${meta.pagination.page + 1}`}
+      class={`pagination-button ${page >= meta.pagination.pageCount ? "disabled" : ""}`}
+      aria-label="Go to next page"
+      rel={page < meta.pagination.pageCount ? "next" : null}
+    >
+      Next
+    </a>
+  </nav>
+</div>

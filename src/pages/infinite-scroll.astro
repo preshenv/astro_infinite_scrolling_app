@@ -1,0 +1,85 @@
+---
+import "../styles/articles.css";
+
+export const prerender = false;
+
+let page = parseInt(Astro.url.searchParams.get("page") || "1");
+const pageSize = 10;
+
+const fetchArticles = async (page) => {
+  const response = await fetch(
+    `${import.meta.env.STRAPI_API_URL}/api/articles?pagination[page]=${page}&pagination[pageSize]=${pageSize}&populate=*`
+  );
+  const data = await response.json();
+
+  const { data: fetchedArticles, meta } = data;
+  return {
+    articles: fetchedArticles,
+    hasMore: meta.pagination.page < meta.pagination.pageCount,
+  };
+};
+
+const { articles: initialArticles, hasMore: initialHasMore } =
+  await fetchArticles(page);
+---
+
+<div class="articles-container">
+  <h1>Latest Articles</h1>
+
+  <div class="articles-grid">
+    {initialArticles.map((article) => (
+      <article class="article">
+        <h2>{article.attributes.title}</h2>
+        <div class="article-content" set:html={article.attributes.content} />
+      </article>
+    ))}
+  </div>
+
+  <div id="article-loader" style="display: none;">Loading more articles...</div>
+</div>
+
+<script define:vars={{ initialHasMore, page, pageSize }}>
+  let isLoading = false;
+  let hasMore = initialHasMore;
+  let currentPage = page;
+
+  const articleLoader = document.getElementById('article-loader');
+  const articlesGrid = document.querySelector('.articles-grid');
+
+  const fetchMoreArticles = async () => {
+    if (isLoading || !hasMore) return;
+
+    isLoading = true;
+    articleLoader.style.display = 'block';
+
+    currentPage++;
+    const { articles: newArticles, hasMore: moreAvailable } = await fetch(`/api/articles?page=${currentPage}&pageSize=${pageSize}`)
+      .then(res => res.json());
+
+    newArticles.forEach(article => {
+      const articleElement = document.createElement('article');
+      articleElement.className = 'article';
+      articleElement.innerHTML = `
+        <h2>${article.attributes.title}</h2>
+        <div class="article-content">${article.attributes.content}</div>
+      `;
+      articlesGrid.appendChild(articleElement);
+    });
+
+    hasMore = moreAvailable;
+    isLoading = false;
+    articleLoader.style.display = 'none';
+  };
+
+  const handleScroll = () => {
+    const scrollHeight = document.documentElement.scrollHeight;
+    const scrollTop = document.documentElement.scrollTop;
+    const clientHeight = document.documentElement.clientHeight;
+
+    if (scrollTop + clientHeight >= scrollHeight - 100) {
+      fetchMoreArticles();
+    }
+  };
+
+  window.addEventListener('scroll', handleScroll);
+</script>
