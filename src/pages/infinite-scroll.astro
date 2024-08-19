@@ -29,8 +29,8 @@ const { articles: initialArticles, hasMore: initialHasMore } =
   <div class="articles-grid">
     {initialArticles.map((article) => (
       <article class="article">
-        <h2>{article.attributes.title}</h2>
-        <div class="article-content" set:html={article.attributes.content} />
+        <h2>{article.title}</h2>
+        <div class="article-content" set:html={article.content} />
       </article>
     ))}
   </div>
@@ -60,8 +60,8 @@ const { articles: initialArticles, hasMore: initialHasMore } =
       const articleElement = document.createElement('article');
       articleElement.className = 'article';
       articleElement.innerHTML = `
-        <h2>${article.attributes.title}</h2>
-        <div class="article-content">${article.attributes.content}</div>
+        <h2>${article.title}</h2>
+        <div class="article-content">${article.content}</div>
       `;
       articlesGrid.appendChild(articleElement);
     });
