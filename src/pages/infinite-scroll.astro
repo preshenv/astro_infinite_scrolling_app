@@ -3,7 +3,7 @@ import "../styles/articles.css";
 
 export const prerender = false;
 
-let page = parseInt(Astro.url.searchParams.get("page") || "1");
+const initialPage = parseInt(Astro.url.searchParams.get("page") || "1");
 const pageSize = 10;
 
 const fetchArticles = async (page) => {
@@ -16,70 +16,102 @@ const fetchArticles = async (page) => {
   return {
     articles: fetchedArticles,
     hasMore: meta.pagination.page < meta.pagination.pageCount,
+    totalPages: meta.pagination.pageCount,
   };
 };
 
-const { articles: initialArticles, hasMore: initialHasMore } =
-  await fetchArticles(page);
+const {
+  articles: initialArticles,
+  hasMore: initialHasMore,
+  totalPages,
+} = await fetchArticles(initialPage);
 ---
 
 <div class="articles-container">
   <h1>Latest Articles</h1>
 
   <div class="articles-grid">
-    {initialArticles.map((article) => (
-      <article class="article">
-        <h2>{article.title}</h2>
-        <div class="article-content" set:html={article.content} />
-      </article>
-    ))}
+    {
+      initialArticles.map((article) => (
+        <article class="article">
+          <h2>{article.title}</h2>
+          <div class="article-content" set:html={article.content} />
+        </article>
+      ))
+    }
   </div>
 
   <div id="article-loader" style="display: none;">Loading more articles...</div>
 </div>
 
-<script define:vars={{ initialHasMore, page, pageSize }}>
+<script define:vars={{ initialHasMore, initialPage, pageSize, totalPages }}>
   let isLoading = false;
   let hasMore = initialHasMore;
-  let currentPage = page;
+  let currentPage = initialPage;
 
-  const articleLoader = document.getElementById('article-loader');
-  const articlesGrid = document.querySelector('.articles-grid');
+  const articleLoader = document.getElementById("article-loader");
+  const articlesGrid = document.querySelector(".articles-grid");
 
   const fetchMoreArticles = async () => {
     if (isLoading || !hasMore) return;
 
     isLoading = true;
-    articleLoader.style.display = 'block';
+    articleLoader.style.display = "block";
 
-    currentPage++;
-    const { articles: newArticles, hasMore: moreAvailable } = await fetch(`/api/articles?page=${currentPage}&pageSize=${pageSize}`)
-      .then(res => res.json());
+    try {
+      const response = await fetch(
+        `/api/articles?page=${currentPage + 1}&pageSize=${pageSize}`
+      );
+      const data = await response.json();
 
-    newArticles.forEach(article => {
-      const articleElement = document.createElement('article');
-      articleElement.className = 'article';
-      articleElement.innerHTML = `
-        <h2>${article.title}</h2>
-        <div class="article-content">${article.content}</div>
-      `;
-      articlesGrid.appendChild(articleElement);
-    });
+      if (!data.articles || data.articles.length === 0) {
+        hasMore = false;
+      } else {
+        currentPage++;
+        data.articles.forEach((article) => {
+          const articleElement = document.createElement("article");
+          articleElement.className = "article";
+          articleElement.innerHTML = `
+            <h2>${article.title}</h2>
+            <div class="article-content">${article.content}</div>
+          `;
+          articlesGrid.appendChild(articleElement);
+        });
+        hasMore = currentPage < totalPages;
+      }
+      console.log(
+        `Fetched page ${currentPage}/${totalPages}, hasMore: ${hasMore}`
+      );
+    } catch (error) {
+      console.error("Error fetching articles:", error);
+      hasMore = false;
+    } finally {
+      isLoading = false;
+      articleLoader.style.display = hasMore ? "none" : "block";
+      articleLoader.textContent = hasMore
+        ? "Loading more articles..."
+        : "No more articles to load.";
 
-    hasMore = moreAvailable;
-    isLoading = false;
-    articleLoader.style.display = 'none';
+      if (!hasMore) {
+        window.removeEventListener("scroll", handleScroll);
+        console.log("No more articles, removed scroll listener");
+      }
+    }
   };
 
   const handleScroll = () => {
-    const scrollHeight = document.documentElement.scrollHeight;
-    const scrollTop = document.documentElement.scrollTop;
-    const clientHeight = document.documentElement.clientHeight;
+    if (isLoading || !hasMore) return;
 
-    if (scrollTop + clientHeight >= scrollHeight - 100) {
+    const scrollHeight = document.documentElement.scrollHeight;
+    const scrollTop = window.scrollY || document.documentElement.scrollTop;
+    const clientHeight =
+      window.innerHeight || document.documentElement.clientHeight;
+
+    if (scrollTop + clientHeight >= scrollHeight - 200) {
+      console.log(`Triggering fetch for page ${currentPage + 1}`);
       fetchMoreArticles();
     }
   };
 
-  window.addEventListener('scroll', handleScroll);
+  window.addEventListener("scroll", handleScroll);
 </script>
