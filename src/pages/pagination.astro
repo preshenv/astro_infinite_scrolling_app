@@ -24,8 +24,8 @@ const { data: articles, meta } = await fetchArticles(page, pageSize);
     {
       articles.map((article) => (
         <article class="article">
-          <h2>{article.attributes.title}</h2>
-          <div class="article-content" set:html={article.attributes.content} />
+          <h2>{article.title}</h2>
+          <div class="article-content" set:html={article.content} />
         </article>
       ))
     }
